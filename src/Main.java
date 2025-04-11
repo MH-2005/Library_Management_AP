@@ -92,14 +92,12 @@ class CommandHandeling {
         String action;
         String[] parameters;
         if (command.contains("#")) {
-            // Split command by '#' or '|'
             String[] commandParts = command.split("[#\\|]");
             action = commandParts[0];
-            // Extract parameters, handling potential empty strings from splitting
-            parameters = Arrays.stream(commandParts, 1, commandParts.length).filter(p -> !p.isEmpty()).toArray(String[]::new);
+            parameters = Arrays.copyOfRange(commandParts, 1, commandParts.length);
         } else {
             action = command;
-            parameters = new String[0]; // Ensure parameters is never null
+            parameters = null;
         }
 
         return actionProcess(action, parameters);
@@ -114,531 +112,302 @@ class CommandHandeling {
      * @return A feedback message indicating the result of the action.
      */
     private static String actionProcess(String action, String[] parameters) {
-        String feedback;
+        String feedback = null;
+        User user;
+        Library library;
+        Resource resource;
 
-        try {
-            switch (action) {
-                case "add-library":
-                    feedback = handleAddLibrary(parameters);
+        switch (action) {
+            case "add-library":
+                feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
+                if (!feedback.equals("success")) {
                     break;
-                case "add-category":
-                    feedback = handleAddCategory(parameters);
+                }
+                feedback = Library.addLibrary(parameters[2], parameters[3], parameters[4], Integer.parseInt(parameters[5]), parameters[6]);
+                break;
+            case "add-category":
+                feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
+                if (!feedback.equals("success")) {
                     break;
-                case "add-student":
-                case "add-manager":
-                case "add-staff":
-                    feedback = handleAddUser(action, parameters);
+                }
+                feedback = Category.addCategory(parameters[2], parameters[3], parameters[4]);
+                break;
+            case "add-student":
+            case "add-manager":
+            case "add-staff":
+                feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
+                if (!feedback.equals("success")) {
                     break;
-                case "remove-user":
-                    feedback = handleRemoveUser(parameters);
+                }
+                if (action.equals("add-student")) {
+                    feedback = User.addUser(new Student(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]));
+                }
+                if (action.equals("add-manager")) {
+                    feedback = User.addUser(new Manager(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8], parameters[9]));
+
+                    if (feedback.equals("success") && Library.libraryFinder(parameters[9]) == null) {
+                        User.removeUser(parameters[2]);
+                        feedback = "not-found";
+                    }
+                }
+                if (action.equals("add-staff") && parameters[9].equals("staff")) {
+                    feedback = User.addUser(new Staff(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]));
+                }
+                if (action.equals("add-staff") && parameters[9].equals("professor")) {
+                    feedback = User.addUser(new Master(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]));
+                }
+                break;
+            case "remove-user":
+                feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
+                if (!feedback.equals("success")) {
                     break;
-                case "add-book":
-                    feedback = handleAddBook(parameters);
+                }
+                feedback = User.removeUser(parameters[2]);
+                break;
+            case "add-book":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[9]);
+                if (!feedback.equals("success")) {
                     break;
-                case "add-thesis":
-                    feedback = handleAddThesis(parameters);
+                }
+                feedback = Library.libraryFinder(parameters[9]).addResource(new Book(parameters[2], parameters[3], parameters[4], Integer.parseInt(parameters[7]), parameters[5], parameters[6], parameters[8]));
+                break;
+            case "add-thesis":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[8]);
+                if (!feedback.equals("success")) {
                     break;
-                case "add-ganjineh-book":
-                    feedback = handleAddTreasureBook(parameters);
+                }
+                feedback = Library.libraryFinder(parameters[8]).addResource(new Thesis(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7]));
+                break;
+            case "add-ganjineh-book":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[9]);
+                if (!feedback.equals("success")) {
                     break;
-                case "add-selling-book":
-                    feedback = handleAddSellingBook(parameters);
+                }
+                feedback = Library.libraryFinder(parameters[9]).addResource(new TreasureBook(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]));
+                break;
+            case "add-selling-book":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[11]);
+                if (!feedback.equals("success")) {
                     break;
-                case "remove-resource":
-                    feedback = handleRemoveResource(parameters);
+                }
+                feedback = Library.libraryFinder(parameters[11]).addResource(new SellingBook(parameters[2], parameters[3], parameters[4], Integer.parseInt(parameters[7]), Integer.parseInt(parameters[8]), Integer.parseInt(parameters[9]), parameters[10]));
+                break;
+            case "remove-resource":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[3]);
+                if (!feedback.equals("success")) {
                     break;
-                case "borrow":
-                    feedback = handleBorrow(parameters);
+                }
+                feedback = Library.libraryFinder(parameters[3]).removeResource(parameters[2]);
+                break;
+            case "borrow":
+                user = User.findUser(parameters[0]);
+                if (user == null) {
+                    feedback = "not-found";
                     break;
-                case "return":
-                    feedback = handleReturn(parameters);
+                }
+                if (!user.getPassword().equals(parameters[1])) {
+                    feedback = "invalid-pass";
                     break;
-                case "buy":
-                    feedback = handleBuy(parameters);
+                }
+                library = Library.libraryFinder(parameters[2]);
+                if (library == null) {
+                    feedback = "not-found";
                     break;
-                case "read":
-                    feedback = handleRead(parameters);
+                }
+                resource = library.resourceFinder(parameters[3]);
+                if (resource == null) {
+                    feedback = "not-found";
                     break;
-                case "add-comment":
-                    feedback = handleAddComment(parameters);
+                }
+                feedback = library.borrowResource(user, resource, parameters[4] + "|" + parameters[5]);
+                break;
+            case "return":
+                user = User.findUser(parameters[0]);
+                if (user == null) {
+                    feedback = "not-found";
                     break;
-                case "search":
-                    feedback = handleSearchResource(parameters);
+                }
+                if (!user.getPassword().equals(parameters[1])) {
+                    feedback = "invalid-pass";
                     break;
-                case "search-user":
-                    feedback = handleSearchUser(parameters);
+                }
+                library = Library.libraryFinder(parameters[2]);
+                if (library == null) {
+                    feedback = "not-found";
                     break;
-                case "library-report":
-                    feedback = handleLibraryReport(parameters);
+                }
+                resource = library.resourceFinder(parameters[3]);
+                if (resource == null) {
+                    feedback = "not-found";
                     break;
-                case "category-report":
-                    feedback = handleCategoryReport(parameters);
+                }
+                feedback = library.returnResource(user, resource, parameters[4] + "|" + parameters[5]);
+                break;
+            case "buy":
+                user = User.findUser(parameters[0]);
+                if (user == null) {
+                    feedback = "not-found";
                     break;
-                case "report-passed-deadline":
-                    feedback = handleReportPassedDeadline(parameters);
+                }
+                if (user instanceof Manager) {
+                    feedback = "permission-denied";
                     break;
-                case "report-penalties-sum":
-                    feedback = handleReportPenaltiesSum(parameters);
+                }
+                if (!user.getPassword().equals(parameters[1])) {
+                    feedback = "invalid-pass";
                     break;
-                case "report-sell":
-                    feedback = handleReportSell(parameters);
+                }
+                library = Library.libraryFinder(parameters[2]);
+                if (library == null) {
+                    feedback = "not-found";
                     break;
-                case "report-most-popular":
-                    feedback = handleReportMostPopular(parameters);
+                }
+                resource = library.resourceFinder(parameters[3]);
+                if (resource == null) {
+                    feedback = "not-found";
                     break;
-                default:
-                    feedback = "invalid-command"; // Consistent naming
+                }
+                feedback = library.buy(user, resource);
+                break;
+            case "read":
+                user = User.findUser(parameters[0]);
+                if (user == null) {
+                    feedback = "not-found";
                     break;
-            }
-        } catch (ArrayIndexOutOfBoundsException | NumberFormatException e) {
-            // Catch common errors due to incorrect parameter count or type
-            feedback = "invalid-parameters";
-        } catch (Exception e) {
-            // Catch unexpected errors
-            System.err.println("An unexpected error occurred: " + e.getMessage());
-            e.printStackTrace(); // Log the stack trace for debugging
-            feedback = "internal-error";
+                }
+                if (!(user instanceof Master)) {
+                    feedback = "permission-denied";
+                    break;
+                }
+                if (!user.getPassword().equals(parameters[1])) {
+                    feedback = "invalid-pass";
+                    break;
+                }
+                library = Library.libraryFinder(parameters[2]);
+                if (library == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                resource = library.resourceFinder(parameters[3]);
+                if (resource == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                feedback = library.read(user, resource, parameters[4] + "|" + parameters[5]);
+                break;
+            case "add-comment":
+                user = User.findUser(parameters[0]);
+                if (user == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                if (!(user instanceof Master || user instanceof Student)) {
+                    feedback = "permission-denied";
+                    break;
+                }
+                if (!user.getPassword().equals(parameters[1])) {
+                    feedback = "invalid-pass";
+                    break;
+                }
+                library = Library.libraryFinder(parameters[2]);
+                if (library == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                resource = library.resourceFinder(parameters[3]);
+                if (resource == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                resource.addComment(parameters[4]);
+                feedback = "success";
+                break;
+            case "search":
+                ArrayList<String> idList = Library.searchResource(parameters[0]);
+                if (idList == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                feedback = String.join("|", idList);
+                break;
+            case "search-user":
+                user = User.findUser(parameters[0]);
+                if (user == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                if (user instanceof Student) {
+                    feedback = "permission-denied";
+                    break;
+                }
+                if (!user.getPassword().equals(parameters[1])) {
+                    feedback = "invalid-pass";
+                    break;
+                }
+                ArrayList<String> userIdList = User.searchUser(parameters[2]);
+                if (userIdList == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                feedback = String.join("|", userIdList);
+                break;
+            case "library-report":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[2]);
+                if (!feedback.equals("success")) {
+                    break;
+                }
+                feedback = Library.libraryFinder(parameters[2]).libraryReport();
+                break;
+            case "category-report":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[3]);
+                if (!feedback.equals("success")) {
+                    break;
+                }
+                if (Category.categoryFinder(parameters[2]) == null) {
+                    feedback = "not-found";
+                    break;
+                }
+                feedback = Library.libraryFinder(parameters[3]).categoryReport(parameters[2]);
+                break;
+            case "report-passed-deadline":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[2]);
+                if (!feedback.equals("success")) {
+                    break;
+                }
+                ArrayList<String> passedIds = Library.libraryFinder(parameters[2]).reportPassedDeadline(parameters[3] + "|" + parameters[4]);
+                if (passedIds.isEmpty()) {
+                    feedback = "none";
+                    break;
+                }
+                feedback = String.join("|", passedIds);
+                break;
+            case "report-penalties-sum":
+                feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
+                if (!feedback.equals("success")) {
+                    break;
+                }
+                feedback = Integer.toString(User.reportPenaltiesSum());
+                break;
+            case "report-sell":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[2]);
+                if (!feedback.equals("success")) {
+                    break;
+                }
+                feedback = Library.libraryFinder(parameters[2]).reportSell();
+                break;
+            case "report-most-popular":
+                feedback = Manager.managerAuthenticator(parameters[0], parameters[1], parameters[2]);
+                if (!feedback.equals("success")) {
+                    break;
+                }
+                feedback = Library.libraryFinder(parameters[2]).reportMostPopular();
+                break;
+            default:
+                feedback = "invalid command";
+                break;
         }
 
         return feedback;
-    }
-
-    /**
-     * Handles the 'add-library' command.
-     * Requires admin authentication.
-     *
-     * @param parameters Command parameters [adminId, adminPass, libraryId, libraryName, year, desks, address].
-     * @return Feedback string.
-     */
-    private static String handleAddLibrary(String[] parameters) {
-        String feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        return Library.addLibrary(parameters[2], parameters[3], parameters[4], Integer.parseInt(parameters[5]), parameters[6]);
-    }
-
-    /**
-     * Handles the 'add-category' command.
-     * Requires admin authentication.
-     *
-     * @param parameters Command parameters [adminId, adminPass, categoryId, categoryName, parentCategoryId].
-     * @return Feedback string.
-     */
-    private static String handleAddCategory(String[] parameters) {
-        String feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        return Category.addCategory(parameters[2], parameters[3], parameters[4]);
-    }
-
-    /**
-     * Handles the 'add-student', 'add-manager', 'add-staff' commands.
-     * Requires admin authentication.
-     *
-     * @param action     The specific add user action ('add-student', 'add-manager', 'add-staff').
-     * @param parameters Command parameters depending on the action.
-     * @return Feedback string.
-     */
-    private static String handleAddUser(String action, String[] parameters) {
-        String feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-
-        User userToAdd = null;
-        switch (action) {
-            case "add-student":
-                userToAdd = new Student(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]);
-                break;
-            case "add-manager":
-                // Check if library exists before adding manager
-                if (Library.libraryFinder(parameters[9]) == null) {
-                    return "not-found";
-                }
-                userToAdd = new Manager(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8], parameters[9]);
-                break;
-            case "add-staff":
-                if (parameters.length > 9 && parameters[9].equals("professor")) {
-                    userToAdd = new Master(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]);
-                } else if (parameters.length > 9 && parameters[9].equals("staff")) {
-                    userToAdd = new Staff(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]);
-                } else {
-                    return "invalid-parameters"; // Or a more specific error
-                }
-                break;
-        }
-
-        if (userToAdd != null) {
-            return User.addUser(userToAdd);
-        } else {
-            // Should not happen if logic is correct, but as a safeguard
-            return "internal-error";
-        }
-    }
-
-    /**
-     * Handles the 'remove-user' command.
-     * Requires admin authentication.
-     *
-     * @param parameters Command parameters [adminId, adminPass, userIdToRemove].
-     * @return Feedback string.
-     */
-    private static String handleRemoveUser(String[] parameters) {
-        String feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        return User.removeUser(parameters[2]);
-    }
-
-    /**
-     * Handles the 'add-book' command.
-     * Requires manager authentication for the target library.
-     *
-     * @param parameters Command parameters [managerId, managerPass, bookId, title, author, publisher, year, copies, category, libraryId].
-     * @return Feedback string.
-     */
-    private static String handleAddBook(String[] parameters) {
-        String libraryId = parameters[9];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        // Library existence already checked in managerAuthenticator, but check again for safety
-        if (library == null) return "not-found";
-        Book book = new Book(parameters[2], parameters[3], parameters[4], Integer.parseInt(parameters[7]), parameters[5], parameters[6], parameters[8]);
-        return library.addResource(book);
-    }
-
-    /**
-     * Handles the 'add-thesis' command.
-     * Requires manager authentication for the target library.
-     *
-     * @param parameters Command parameters [managerId, managerPass, thesisId, title, author, studentName, year, category, libraryId].
-     * @return Feedback string.
-     */
-    private static String handleAddThesis(String[] parameters) {
-        String libraryId = parameters[8];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        Thesis thesis = new Thesis(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7]);
-        return library.addResource(thesis);
-    }
-
-    /**
-     * Handles the 'add-ganjineh-book' command.
-     * Requires manager authentication for the target library.
-     *
-     * @param parameters Command parameters [managerId, managerPass, bookId, title, author, publisher, year, donator, category, libraryId].
-     * @return Feedback string.
-     */
-    private static String handleAddTreasureBook(String[] parameters) {
-        String libraryId = parameters[9];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        TreasureBook book = new TreasureBook(parameters[2], parameters[3], parameters[4], parameters[5], parameters[6], parameters[7], parameters[8]);
-        return library.addResource(book);
-    }
-
-    /**
-     * Handles the 'add-selling-book' command.
-     * Requires manager authentication for the target library.
-     *
-     * @param parameters Command parameters [managerId, managerPass, bookId, title, author, publisher, year, copies, price, discount, category, libraryId].
-     * @return Feedback string.
-     */
-    private static String handleAddSellingBook(String[] parameters) {
-        String libraryId = parameters[11];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        SellingBook book = new SellingBook(parameters[2], parameters[3], parameters[4], Integer.parseInt(parameters[7]), Integer.parseInt(parameters[8]), Integer.parseInt(parameters[9]), parameters[10]);
-        return library.addResource(book);
-    }
-
-    /**
-     * Handles the 'remove-resource' command.
-     * Requires manager authentication for the target library.
-     *
-     * @param parameters Command parameters [managerId, managerPass, resourceId, libraryId].
-     * @return Feedback string.
-     */
-    private static String handleRemoveResource(String[] parameters) {
-        String libraryId = parameters[3];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        return library.removeResource(parameters[2]);
-    }
-
-    /**
-     * Handles the 'borrow' command.
-     * Authenticates the user and finds the library/resource.
-     *
-     * @param parameters Command parameters [userId, userPass, libraryId, resourceId, date, time].
-     * @return Feedback string.
-     */
-    private static String handleBorrow(String[] parameters) {
-        User user = User.findUser(parameters[0]);
-        if (user == null) return "not-found";
-        if (!user.getPassword().equals(parameters[1])) return "invalid-pass";
-
-        Library library = Library.libraryFinder(parameters[2]);
-        if (library == null) return "not-found";
-
-        Resource resource = library.resourceFinder(parameters[3]);
-        if (resource == null) return "not-found";
-
-        String dateTime = parameters[4] + "|" + parameters[5];
-        return library.borrowResource(user, resource, dateTime);
-    }
-
-    /**
-     * Handles the 'return' command.
-     * Authenticates the user and finds the library/resource.
-     *
-     * @param parameters Command parameters [userId, userPass, libraryId, resourceId, date, time].
-     * @return Feedback string.
-     */
-    private static String handleReturn(String[] parameters) {
-        User user = User.findUser(parameters[0]);
-        if (user == null) return "not-found";
-        if (!user.getPassword().equals(parameters[1])) return "invalid-pass";
-
-        Library library = Library.libraryFinder(parameters[2]);
-        if (library == null) return "not-found";
-
-        Resource resource = library.resourceFinder(parameters[3]);
-        if (resource == null) return "not-found";
-
-        String dateTime = parameters[4] + "|" + parameters[5];
-        return library.returnResource(user, resource, dateTime);
-    }
-
-    /**
-     * Handles the 'buy' command.
-     * Authenticates the user (non-manager) and finds the library/resource.
-     *
-     * @param parameters Command parameters [userId, userPass, libraryId, resourceId].
-     * @return Feedback string.
-     */
-    private static String handleBuy(String[] parameters) {
-        User user = User.findUser(parameters[0]);
-        if (user == null) return "not-found";
-        if (user instanceof Manager) return "permission-denied";
-        if (!user.getPassword().equals(parameters[1])) return "invalid-pass";
-
-        Library library = Library.libraryFinder(parameters[2]);
-        if (library == null) return "not-found";
-
-        Resource resource = library.resourceFinder(parameters[3]);
-        if (resource == null) return "not-found";
-
-        return library.buy(user, resource);
-    }
-
-    /**
-     * Handles the 'read' command.
-     * Authenticates the user (must be Master) and finds the library/resource.
-     *
-     * @param parameters Command parameters [userId, userPass, libraryId, resourceId, date, time].
-     * @return Feedback string.
-     */
-    private static String handleRead(String[] parameters) {
-        User user = User.findUser(parameters[0]);
-        if (user == null) return "not-found";
-        if (!(user instanceof Master)) return "permission-denied";
-        if (!user.getPassword().equals(parameters[1])) return "invalid-pass";
-
-        Library library = Library.libraryFinder(parameters[2]);
-        if (library == null) return "not-found";
-
-        Resource resource = library.resourceFinder(parameters[3]);
-        if (resource == null) return "not-found";
-
-        String dateTime = parameters[4] + "|" + parameters[5];
-        return library.read(user, resource, dateTime);
-    }
-
-    /**
-     * Handles the 'add-comment' command.
-     * Authenticates the user (Student or Master) and finds the library/resource.
-     *
-     * @param parameters Command parameters [userId, userPass, libraryId, resourceId, commentText].
-     * @return Feedback string.
-     */
-    private static String handleAddComment(String[] parameters) {
-        User user = User.findUser(parameters[0]);
-        if (user == null) return "not-found";
-        // Allow only students and masters to comment
-        if (!(user instanceof Student || user instanceof Master)) return "permission-denied";
-        if (!user.getPassword().equals(parameters[1])) return "invalid-pass";
-
-        Library library = Library.libraryFinder(parameters[2]);
-        if (library == null) return "not-found";
-
-        Resource resource = library.resourceFinder(parameters[3]);
-        if (resource == null) return "not-found";
-
-        resource.addComment(parameters[4]);
-        return "success";
-    }
-
-    /**
-     * Handles the 'search' command for resources.
-     *
-     * @param parameters Command parameters [searchPhrase].
-     * @return Feedback string (list of IDs or 'not-found').
-     */
-    private static String handleSearchResource(String[] parameters) {
-        ArrayList<String> idList = Library.searchResource(parameters[0]);
-        return (idList == null || idList.isEmpty()) ? "not-found" : String.join("|", idList);
-    }
-
-    /**
-     * Handles the 'search-user' command.
-     * Authenticates the user (non-Student).
-     *
-     * @param parameters Command parameters [userId, userPass, searchPhrase].
-     * @return Feedback string (list of IDs or 'not-found').
-     */
-    private static String handleSearchUser(String[] parameters) {
-        User user = User.findUser(parameters[0]);
-        if (user == null) return "not-found";
-        if (user instanceof Student) return "permission-denied"; // Only non-students can search users
-        if (!user.getPassword().equals(parameters[1])) return "invalid-pass";
-
-        ArrayList<String> userIdList = User.searchUser(parameters[2]);
-        return (userIdList == null || userIdList.isEmpty()) ? "not-found" : String.join("|", userIdList);
-    }
-
-    /**
-     * Handles the 'library-report' command.
-     * Requires manager authentication.
-     *
-     * @param parameters Command parameters [managerId, managerPass, libraryId].
-     * @return Feedback string (report data or error message).
-     */
-    private static String handleLibraryReport(String[] parameters) {
-        String libraryId = parameters[2];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        return library.libraryReport();
-    }
-
-    /**
-     * Handles the 'category-report' command.
-     * Requires manager authentication and validates category.
-     *
-     * @param parameters Command parameters [managerId, managerPass, categoryId, libraryId].
-     * @return Feedback string (report data or error message).
-     */
-    private static String handleCategoryReport(String[] parameters) {
-        String libraryId = parameters[3];
-        String categoryId = parameters[2];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        if (Category.categoryFinder(categoryId) == null) {
-            return "not-found";
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        return library.categoryReport(categoryId);
-    }
-
-    /**
-     * Handles the 'report-passed-deadline' command.
-     * Requires manager authentication.
-     *
-     * @param parameters Command parameters [managerId, managerPass, libraryId, date, time].
-     * @return Feedback string (list of IDs or 'none').
-     */
-    private static String handleReportPassedDeadline(String[] parameters) {
-        String libraryId = parameters[2];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-
-        String dateTime = parameters[3] + "|" + parameters[4];
-        ArrayList<String> passedIds = library.reportPassedDeadline(dateTime);
-        return (passedIds == null || passedIds.isEmpty()) ? "none" : String.join("|", passedIds);
-    }
-
-    /**
-     * Handles the 'report-penalties-sum' command.
-     * Requires admin authentication.
-     *
-     * @param parameters Command parameters [adminId, adminPass].
-     * @return Feedback string (total penalty sum or error message).
-     */
-    private static String handleReportPenaltiesSum(String[] parameters) {
-        String feedback = Admin.adminAuthenticator(parameters[0], parameters[1]);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        return Integer.toString(User.reportPenaltiesSum());
-    }
-
-    /**
-     * Handles the 'report-sell' command.
-     * Requires manager authentication.
-     *
-     * @param parameters Command parameters [managerId, managerPass, libraryId].
-     * @return Feedback string (sell report or error message).
-     */
-    private static String handleReportSell(String[] parameters) {
-        String libraryId = parameters[2];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        return library.reportSell();
-    }
-
-    /**
-     * Handles the 'report-most-popular' command.
-     * Requires manager authentication.
-     *
-     * @param parameters Command parameters [managerId, managerPass, libraryId].
-     * @return Feedback string (popularity report or error message).
-     */
-    private static String handleReportMostPopular(String[] parameters) {
-        String libraryId = parameters[2];
-        String feedback = Manager.managerAuthenticator(parameters[0], parameters[1], libraryId);
-        if (!feedback.equals("success")) {
-            return feedback;
-        }
-        Library library = Library.libraryFinder(libraryId);
-        if (library == null) return "not-found";
-        return library.reportMostPopular();
     }
 }
 
