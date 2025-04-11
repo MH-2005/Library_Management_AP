@@ -4,28 +4,62 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 
 /**
- * An interface that defines the resources that can borrowed
+ * An interface that defines the resources that can be borrowed from the library.
+ * Implements methods for tracking borrow statistics and time.
  */
 interface Borrowable {
+    /**
+     * Gets the current borrow count for this resource.
+     *
+     * @return The number of times this resource is currently borrowed.
+     */
     int getBorrowCount();
 
+    /**
+     * Sets the borrow count for this resource.
+     *
+     * @param borrowCount The number to set as the borrow count.
+     */
     void setBorrowCount(int borrowCount);
 
+    /**
+     * Gets the total number of times this resource has been borrowed.
+     *
+     * @return The total borrow count.
+     */
     int getTotalBorrowCount();
 
+    /**
+     * Increases the total borrow count by one.
+     */
     void increaseTotalBorrowCount();
 
+    /**
+     * Gets the total time this resource has been borrowed in minutes.
+     *
+     * @return The total borrow time in minutes.
+     */
     long getBorrowTime();
 
+    /**
+     * Increases the borrow time by specified minutes.
+     *
+     * @param minutes The number of minutes to add to the borrow time.
+     */
     void increaseBorrowTime(long minutes);
 }
 
 /**
- * The main functions that used for get commands.
+ * The main class that serves as the entry point for the Library Management System.
  * It continuously reads commands from the standard input until the "finish"
  * command is entered.
  */
 public class Main {
+    /**
+     * The main method that starts the Library Management System.
+     *
+     * @param args Command line arguments (not used).
+     */
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         String command;
@@ -41,20 +75,18 @@ public class Main {
     }
 }
 
-
 /**
- * The CommandHandling class is responsible for handling  and processing user
- * commands.
- * Each command is processed to perform actions related to student and staff
- * management.
+ * The CommandHandeling class is responsible for parsing and processing user commands.
+ * Each command is processed to perform actions related to library resource and user management.
  */
 class CommandHandeling {
 
     /**
      * Processes a single command by determining the action and parameters.
-     * It then calls the appropriate method based on the action.
+     * It parses the command string and routes to the appropriate handler.
      *
      * @param command The command string entered by the user.
+     * @return A feedback message indicating the result of the command.
      */
     public static String processCommand(String command) {
         String action;
@@ -68,15 +100,16 @@ class CommandHandeling {
             parameters = null;
         }
 
-        String feedback = actionProcess(action, parameters);
-        return feedback;
+        return actionProcess(action, parameters);
     }
 
     /**
-     * this function help processCommand to find witch action should be run.
-     * @param action
-     * @param parameters
-     * @return
+     * Processes the specified action with the given parameters.
+     * This method routes the command to the appropriate handler based on the action.
+     *
+     * @param action     The action to perform.
+     * @param parameters The parameters for the action.
+     * @return A feedback message indicating the result of the action.
      */
     private static String actionProcess(String action, String[] parameters) {
         String feedback = null;
@@ -379,24 +412,33 @@ class CommandHandeling {
 }
 
 /**
- * Represents an abstract admin class with authentication functionality.
+ * Abstract class representing an administrator with authentication capabilities.
  */
 abstract class Admin {
-    // Default admin username and password.
-    private static String USERNAME = "admin";
-    private static String PASSWORD = "AdminPass";
+    /**
+     * Administrator username
+     */
+    private static final String USERNAME = "admin";
+    /**
+     * Administrator password
+     */
+    private static final String PASSWORD = "AdminPass";
 
-    // getters
+    /**
+     * Gets the administrator username.
+     *
+     * @return The administrator username.
+     */
     public static String getUsername() {
         return USERNAME;
     }
 
     /**
-     * Authenticates an admin based on the provided username and password.
+     * Authenticates an administrator based on username and password.
      *
      * @param username The username to authenticate.
-     * @param password The password to validate.
-     * @return A status string indicating the result of authentication:
+     * @param password The password to authenticate.
+     * @return "success" if authentication succeeds, appropriate error message otherwise.
      */
     public static String adminAuthenticator(String username, String password) {
         User user = User.findUser(username);
@@ -416,55 +458,90 @@ abstract class Admin {
 }
 
 /**
- * The Library class represents a library entity with its properties and
- * operations.
+ * Represents a library in the system with resources and user interactions.
+ * Manages borrowing, returning, and reporting on resources.
  */
 class Library {
-    private static HashMap<String,Library> libraryList = new HashMap<>();
+    /**
+     * Map of all libraries in the system, indexed by library ID
+     */
+    private static HashMap<String, Library> libraryList = new HashMap<>();
 
+    /**
+     * Set of resources available in this library
+     */
     private HashSet<Resource> resourceList;
-    private HashSet<String[]> borrowLog; // userId + resourceId + time
+    /**
+     * Log of all borrowing transactions (userId, resourceId, time)
+     */
+    private HashSet<String[]> borrowLog;
+    /**
+     * Unique identifier for this library
+     */
     private String id;
+    /**
+     * Name of the library
+     */
     private String name;
+    /**
+     * Year the library was established
+     */
     private String establishmentYear;
+    /**
+     * Physical address of the library
+     */
     private String address;
+    /**
+     * Number of desks available in the library
+     */
     private int deskCount;
 
     /**
-     * Constructs a new Library object with the specified parameters.
+     * Constructs a new Library with the specified details.
      *
      * @param id                The unique identifier for the library.
      * @param name              The name of the library.
      * @param establishmentYear The year the library was established.
-     * @param deskCount         The number of desks in the library.
-     * @param address           The address of the library.
+     * @param deskCount         The number of desks available in the library.
+     * @param address           The physical address of the library.
      */
     public Library(String id, String name, String establishmentYear, int deskCount, String address) {
-        this.resourceList = new HashSet<>();
         this.id = id;
         this.name = name;
         this.establishmentYear = establishmentYear;
         this.deskCount = deskCount;
         this.address = address;
+        this.resourceList = new HashSet<>();
         this.borrowLog = new HashSet<>();
     }
 
     /**
-     * Finds and returns the Library object with the given ID.
+     * Finds a library by its ID.
      *
-     * @param id The ID of the library to find.
-     * @return The Library object if found, or null if not found.
+     * @param id The unique identifier of the library to find.
+     * @return The Library object if found, otherwise null.
      */
     public static Library libraryFinder(String id) {
         return libraryList.get(id);
     }
 
+    /**
+     * Adds a new library to the system if the ID is not already in use.
+     *
+     * @param id                The unique identifier for the new library.
+     * @param name              The name of the library.
+     * @param establishmentYear The year the library was established.
+     * @param deskCount         The number of desks available in the library.
+     * @param address           The physical address of the library.
+     * @return "duplicate-id" if the ID is already in use, "success" otherwise.
+     */
     public static String addLibrary(String id, String name, String establishmentYear, int deskCount, String address) {
         if (libraryList.containsKey(id)) {
             return "duplicate-id";
         }
+
         Library library = new Library(id, name, establishmentYear, deskCount, address);
-        libraryList.put(id,library);
+        libraryList.put(id, library);
         return "success";
     }
 
@@ -507,6 +584,14 @@ class Library {
         return null;
     }
 
+    /**
+     * Removes a resource from the library if it's not currently borrowed.
+     *
+     * @param id The ID of the resource to remove.
+     * @return "success" if the resource was successfully removed,
+     * "not-allowed" if the resource is currently borrowed,
+     * "not-found" if the resource doesn't exist.
+     */
     public String removeResource(String id) {
         Iterator<Resource> it = resourceList.iterator();
         while (it.hasNext()) {
@@ -522,6 +607,14 @@ class Library {
         return "not-found";
     }
 
+    /**
+     * Adds a new resource to the library if the ID is not a duplicate.
+     *
+     * @param resource The resource to add to the library.
+     * @return "duplicate-id" if a resource with the same ID already exists,
+     * "not-found" if the category doesn't exist,
+     * "success" if the resource was successfully added.
+     */
     public String addResource(Resource resource) {
         if (resourceFinder(resource.getId()) != null) {
             return "duplicate-id";
@@ -710,18 +803,18 @@ class Library {
 
         for (Resource resource : resourceList) {
             switch (resource.getType()) {
-                case "Book":
+                case "book":
                     bookCount += resource.getCopyCount() - ((Borrowable) resource).getBorrowCount();
                     borrowedBookCount += ((Borrowable) resource).getBorrowCount();
                     break;
-                case "Thesis":
+                case "thesis":
                     thesisCount += resource.getCopyCount() - ((Borrowable) resource).getBorrowCount();
                     borrowedThesisCount += ((Borrowable) resource).getBorrowCount();
                     break;
-                case "SellingBook":
+                case "selling-book":
                     sellingBookCount += resource.getCopyCount();
                     break;
-                case "TreasureBook":
+                case "treasure-book":
                     treasureBookCount += resource.getCopyCount();
             }
         }
@@ -743,16 +836,16 @@ class Library {
             while (resourceCategory != null) {
                 if (resourceCategory.getId().equals(categoryId)) {
                     switch (resource.getType()) {
-                        case "Book":
+                        case "book":
                             bookCount += resource.getCopyCount() - ((Borrowable) resource).getBorrowCount();
                             break;
-                        case "Thesis":
+                        case "thesis":
                             thesisCount += resource.getCopyCount() - ((Borrowable) resource).getBorrowCount();
                             break;
-                        case "SellingBook":
+                        case "selling-book":
                             sellingBookCount += resource.getCopyCount();
                             break;
-                        case "TreasureBook":
+                        case "treasure-book":
                             treasureBookCount += resource.getCopyCount();
                     }
                     break;
@@ -912,19 +1005,47 @@ class Library {
  * It contains common attributes and methods shared by all user types.
  */
 abstract class User {
-    // A static HashSet to store the list of users
+    /**
+     * Set of all users registered in the system
+     */
     private static HashSet<User> userList = new HashSet<>();
 
+    /**
+     * Unique identifier for the user
+     */
     private String id;
+    /**
+     * User's password for system access
+     */
     private String password;
+    /**
+     * User's first name
+     */
     private String firstName;
+    /**
+     * User's last name
+     */
     private String lastName;
+    /**
+     * User's national identification code
+     */
     private String nationalCode;
+    /**
+     * User's year of birth
+     */
     private String birthYear;
+    /**
+     * User's residential address
+     */
     private String address;
+    /**
+     * Penalty amount the user owes (if any)
+     */
     private int penalty;
-
-    private ArrayList<String> borrowList; // resource ids that user has borrowed
+    /**
+     * List of resource IDs the user has borrowed
+     */
+    private ArrayList<String> borrowList;
 
     /**
      * Constructor for the User class.
@@ -949,7 +1070,11 @@ abstract class User {
         this.borrowList = new ArrayList<>();
     }
 
-    // getters
+    /**
+     * Gets the list of all users in the system.
+     *
+     * @return The set of all User objects.
+     */
     public static HashSet<User> getUserList() {
         return userList;
     }
@@ -970,12 +1095,10 @@ abstract class User {
     }
 
     /**
-     * Adds a new user to the list if the ID is not a duplicate and not the admin's
-     * username.
+     * Adds a new user to the list if the ID is not a duplicate and not the admin's username.
      *
      * @param user The User object to be added.
-     * @return "duplicate-id" if the ID is already in use or is the admin's
-     * username, "success" otherwise.
+     * @return "duplicate-id" if the ID is already in use or is the admin's username, "success" otherwise.
      */
     public static String addUser(User user) {
         if (findUser(user.getId()) != null || user.getId().equals(Admin.getUsername())) {
@@ -987,12 +1110,12 @@ abstract class User {
     }
 
     /**
-     * Removes a user from the list by their ID if they have no penalties and no
-     * borrowed items.
+     * Removes a user from the list by their ID if they have no penalties and no borrowed items.
      *
      * @param id The unique identifier for the user to be removed.
-     * @return "not-allowed" if the user has penalties or borrowed items, "success"
-     * if the user is removed, "not-found" if the user does not exist.
+     * @return "not-allowed" if the user has penalties or borrowed items,
+     * "success" if the user is removed,
+     * "not-found" if the user does not exist.
      */
     public static String removeUser(String id) {
         Iterator<User> person = userList.iterator();
@@ -1049,83 +1172,216 @@ abstract class User {
         return penalty;
     }
 
+    /**
+     * Gets the list of resources borrowed by this user.
+     *
+     * @return ArrayList of borrowed resource IDs.
+     */
     public ArrayList<String> getBorrowList() {
         return borrowList;
     }
 
+    /**
+     * Gets the maximum number of resources this user can borrow at once.
+     * Subclasses may override this method to provide different limits.
+     *
+     * @return The borrow limit for this user type.
+     */
     public int getBorrowLimit() {
         return 5;
     }
 
+    /**
+     * Gets the unique identifier for this user.
+     *
+     * @return The user ID.
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * Gets the password for this user's account.
+     *
+     * @return The user's password.
+     */
     public String getPassword() {
         return password;
     }
 
+    /**
+     * Gets the first name of this user.
+     *
+     * @return The user's first name.
+     */
     public String getFirstName() {
         return firstName;
     }
 
+    /**
+     * Gets the last name of this user.
+     *
+     * @return The user's last name.
+     */
     public String getLastName() {
         return lastName;
     }
 
+    /**
+     * Gets the national code for this user.
+     *
+     * @return The user's national identification code.
+     */
     public String getNationalCode() {
         return nationalCode;
     }
 
+    /**
+     * Gets the birth year of this user.
+     *
+     * @return The user's year of birth.
+     */
     public String getBirthYear() {
         return birthYear;
     }
 
+    /**
+     * Gets the residential address of this user.
+     *
+     * @return The user's address.
+     */
     public String getAddress() {
         return address;
     }
 
+    /**
+     * Gets the current penalty amount for this user.
+     *
+     * @return The penalty amount.
+     */
     public int getPenalty() {
         return penalty;
     }
 
-    // setter
+    /**
+     * Sets the penalty amount for this user.
+     *
+     * @param penalty The new penalty amount.
+     */
     public void setPenalty(int penalty) {
         this.penalty = penalty;
     }
-
 }
 
+/**
+ * Represents a student user in the library system.
+ * Students have specific borrow limits.
+ */
 class Student extends User {
+    /**
+     * Constructs a new Student with the specified details.
+     *
+     * @param id           Unique identifier for the student.
+     * @param password     Student's password for system access.
+     * @param firstName    Student's first name.
+     * @param lastName     Student's last name.
+     * @param nationalCode Student's national identification code.
+     * @param birthYear    Student's year of birth.
+     * @param address      Student's residential address.
+     */
     public Student(String id, String password, String firstName, String lastName, String nationalCode, String birthYear, String address) {
         super(id, password, firstName, lastName, nationalCode, birthYear, address);
     }
 
+    /**
+     * {@inheritDoc}
+     * Students can borrow up to 3 resources at a time.
+     */
+    @Override
     public int getBorrowLimit() {
         return 3;
     }
 }
 
+/**
+ * Represents a staff member in the library system.
+ * Staff members have standard user privileges.
+ */
 class Staff extends User {
+    /**
+     * Constructs a new Staff member with the specified details.
+     *
+     * @param id           Unique identifier for the staff member.
+     * @param password     Staff's password for system access.
+     * @param firstName    Staff's first name.
+     * @param lastName     Staff's last name.
+     * @param nationalCode Staff's national identification code.
+     * @param birthYear    Staff's year of birth.
+     * @param address      Staff's residential address.
+     */
     public Staff(String id, String password, String firstName, String lastName, String nationalCode, String birthYear, String address) {
         super(id, password, firstName, lastName, nationalCode, birthYear, address);
     }
 }
 
+/**
+ * Represents a professor/master user in the library system.
+ * Masters have additional privileges like reading treasure books.
+ */
 class Master extends User {
+    /**
+     * Constructs a new Master with the specified details.
+     *
+     * @param id           Unique identifier for the master.
+     * @param password     Master's password for system access.
+     * @param firstName    Master's first name.
+     * @param lastName     Master's last name.
+     * @param nationalCode Master's national identification code.
+     * @param birthYear    Master's year of birth.
+     * @param address      Master's residential address.
+     */
     public Master(String id, String password, String firstName, String lastName, String nationalCode, String birthYear, String address) {
         super(id, password, firstName, lastName, nationalCode, birthYear, address);
     }
 }
 
+/**
+ * Represents a manager user with additional library management capabilities.
+ * Managers are associated with a specific library they can manage.
+ */
 class Manager extends User {
+    /**
+     * ID of the library this manager is responsible for
+     */
     private String libraryId;
 
+    /**
+     * Constructs a new Manager with the specified details.
+     *
+     * @param id           Unique identifier for the manager.
+     * @param password     Manager's password for system access.
+     * @param firstName    Manager's first name.
+     * @param lastName     Manager's last name.
+     * @param nationalCode Manager's national identification code.
+     * @param birthYear    Manager's year of birth.
+     * @param address      Manager's residential address.
+     * @param libraryId    ID of the library this manager is responsible for.
+     */
     public Manager(String id, String password, String firstName, String lastName, String nationalCode, String birthYear, String address, String libraryId) {
         super(id, password, firstName, lastName, nationalCode, birthYear, address);
         this.libraryId = libraryId;
     }
 
+    /**
+     * Authenticates a manager for a specific library operation.
+     * Verifies that the user exists, is a manager, has valid credentials,
+     * and is authorized to manage the specified library.
+     *
+     * @param userId    The ID of the manager to authenticate.
+     * @param password  The password to verify.
+     * @param libraryId The ID of the library being accessed.
+     * @return "success" if authentication succeeds, appropriate error message otherwise.
+     */
     public static String managerAuthenticator(String userId, String password, String libraryId) {
         User user = User.findUser(userId);
         if (user == null) {
@@ -1147,6 +1403,11 @@ class Manager extends User {
         return "success";
     }
 
+    /**
+     * Gets the ID of the library this manager is responsible for.
+     *
+     * @return The library ID.
+     */
     public String getLibraryId() {
         return this.libraryId;
     }
@@ -1243,23 +1504,42 @@ class Category {
 
 /**
  * Represents a generic resource with basic attributes and functionalities.
+ * Base class for all library resources including books, theses, etc.
  */
 class Resource {
-
+    /**
+     * Unique identifier for the resource
+     */
     private String id;
+    /**
+     * Title of the resource
+     */
     private String title;
+    /**
+     * Author(s) of the resource
+     */
     private String author;
+    /**
+     * Category the resource belongs to
+     */
     private String category;
+    /**
+     * Number of available copies
+     */
     private int copyCount;
+    /**
+     * Set of comments/reviews for this resource
+     */
     private HashSet<String> comments;
 
     /**
-     * @param id
-     * @param title
-     * @param author
-     * @param copyCount
-     * @param category
-     * @constructor
+     * Constructs a new Resource with the specified details.
+     *
+     * @param id        Unique identifier for the resource.
+     * @param title     Title of the resource.
+     * @param author    Author(s) of the resource.
+     * @param copyCount Number of available copies.
+     * @param category  Category the resource belongs to.
      */
     public Resource(String id, String title, String author, int copyCount, String category) {
         this.id = id;
@@ -1270,270 +1550,559 @@ class Resource {
         this.comments = new HashSet<>();
     }
 
+    /**
+     * Gets the type of this resource.
+     * This method should be overridden by subclasses to return their specific type.
+     *
+     * @return A string representing the resource type.
+     */
     public String getType() {
         return "resourceType";
     }
 
+    /**
+     * Gets the unique identifier for this resource.
+     *
+     * @return The resource ID.
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * Gets the title of this resource.
+     *
+     * @return The resource title.
+     */
     public String getTitle() {
         return title;
     }
 
+    /**
+     * Gets the author(s) of this resource.
+     *
+     * @return The resource author(s).
+     */
     public String getAuthor() {
         return author;
     }
 
+    /**
+     * Gets the number of available copies of this resource.
+     *
+     * @return The copy count.
+     */
     public int getCopyCount() {
         return copyCount;
     }
 
-    // setters
+    /**
+     * Sets the number of available copies of this resource.
+     *
+     * @param copyCount The new copy count.
+     */
     public void setCopyCount(int copyCount) {
         this.copyCount = copyCount;
     }
 
+    /**
+     * Gets the category this resource belongs to.
+     *
+     * @return The category ID.
+     */
     public String getCategory() {
         return category;
     }
 
     /**
-     * Adds a comment to the resource.
+     * Adds a comment or review to this resource.
      *
-     * @param comment The comment to add.
+     * @param comment The comment text to add.
      */
     public void addComment(String comment) {
         comments.add(comment);
     }
 
     /**
-     * Checks if the resource's title matches the given search phrase.
+     * Checks if this resource matches the given search phrase.
+     * Default implementation checks if the title contains the search phrase.
+     * Subclasses can override this to search in additional fields.
      *
-     * @param searchPhrase The phrase to search for within the title.
-     * @return true if the title contains the search phrase, false otherwise.
+     * @param searchPhrase The phrase to search for.
+     * @return true if the resource matches the search criteria, false otherwise.
      */
     public boolean matchesSearch(String searchPhrase) {
         searchPhrase = searchPhrase.toLowerCase();
         return this.title.toLowerCase().contains(searchPhrase);
     }
-
 }
 
+/**
+ * Represents a book in the library collection.
+ * Books can be borrowed and have additional attributes like publisher and publish year.
+ */
 class Book extends Resource implements Borrowable {
-    public int borrowCount;
+    /**
+     * Current number of borrowed copies
+     */
+    private int borrowCount;
+    /**
+     * Publisher of the book
+     */
     private String publisher;
+    /**
+     * Year the book was published
+     */
     private String publishYear;
+    /**
+     * Total time this book has been borrowed (in minutes)
+     */
     private long borrowTime;
+    /**
+     * Total number of times this book has been borrowed
+     */
     private int totalBorrowCount;
 
+    /**
+     * Constructs a new Book with the specified details.
+     *
+     * @param id          Unique identifier for the book.
+     * @param title       Title of the book.
+     * @param author      Author(s) of the book.
+     * @param copyCount   Number of available copies.
+     * @param publisher   Publisher of the book.
+     * @param publishYear Year the book was published.
+     * @param category    Category the book belongs to.
+     */
     public Book(String id, String title, String author, int copyCount, String publisher, String publishYear, String category) {
         super(id, title, author, copyCount, category);
         this.publisher = publisher;
         this.publishYear = publishYear;
-        borrowTime = 0L;
-        totalBorrowCount = 0;
+        this.borrowCount = 0;
+        this.borrowTime = 0;
+        this.totalBorrowCount = 0;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public long getBorrowTime() {
         return borrowTime;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void increaseBorrowTime(long minutes) {
-        borrowTime += minutes;
+        this.borrowTime += minutes;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public int getTotalBorrowCount() {
         return totalBorrowCount;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void increaseTotalBorrowCount() {
-        totalBorrowCount++;
+        this.totalBorrowCount++;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getType() {
-        return "Book";
+        return "book";
     }
 
+    /**
+     * Gets the publisher of this book.
+     *
+     * @return The book's publisher.
+     */
     public String getPublisher() {
         return publisher;
     }
 
+    /**
+     * Gets the publication year of this book.
+     *
+     * @return The book's publication year.
+     */
     public String getPublishYear() {
         return publishYear;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public int getBorrowCount() {
         return borrowCount;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void setBorrowCount(int borrowCount) {
         this.borrowCount = borrowCount;
     }
 
+    /**
+     * {@inheritDoc}
+     * Checks if this book matches the search phrase in title, author, or publisher.
+     */
     @Override
     public boolean matchesSearch(String searchPhrase) {
         searchPhrase = searchPhrase.toLowerCase();
-
-        return this.getTitle().toLowerCase().contains(searchPhrase) || this.getAuthor().toLowerCase().contains(searchPhrase) || this.getPublisher().toLowerCase().contains(searchPhrase);
+        return super.matchesSearch(searchPhrase) || this.getAuthor().toLowerCase().contains(searchPhrase) || this.publisher.toLowerCase().contains(searchPhrase);
     }
-
 }
 
+/**
+ * Represents a thesis in the library collection.
+ * Theses can be borrowed and have specific attributes like master name and defense year.
+ */
 class Thesis extends Resource implements Borrowable {
+    /**
+     * The master associated with this thesis
+     */
     private String master;
+    /**
+     * The year this thesis was defended
+     */
     private String defenseYear;
+    /**
+     * Current number of borrowed copies
+     */
     private int borrowCount;
+    /**
+     * Total time this thesis has been borrowed (in minutes)
+     */
     private long borrowTime;
+    /**
+     * Total number of times this thesis has been borrowed
+     */
     private int totalBorrowCount;
 
+    /**
+     * Constructs a new Thesis with the specified details.
+     *
+     * @param id          Unique identifier for the thesis.
+     * @param title       Title of the thesis.
+     * @param author      Author of the thesis.
+     * @param master      Master associated with this thesis.
+     * @param defenseYear Year the thesis was defended.
+     * @param category    Category the thesis belongs to.
+     */
     public Thesis(String id, String title, String author, String master, String defenseYear, String category) {
         super(id, title, author, 1, category);
         this.master = master;
         this.defenseYear = defenseYear;
-        borrowTime = 0L;
-        totalBorrowCount = 0;
+        this.borrowTime = 0L;
+        this.totalBorrowCount = 0;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public long getBorrowTime() {
         return borrowTime;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void increaseBorrowTime(long minutes) {
-        borrowTime += minutes;
+        this.borrowTime += minutes;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public int getTotalBorrowCount() {
         return totalBorrowCount;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void increaseTotalBorrowCount() {
-        totalBorrowCount++;
+        this.totalBorrowCount++;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getType() {
-        return "Thesis";
+        return "thesis";
     }
 
+    /**
+     * Gets the master associated with this thesis.
+     *
+     * @return The master's name.
+     */
     public String getMaster() {
         return master;
     }
 
+    /**
+     * Gets the defense year of this thesis.
+     *
+     * @return The defense year.
+     */
     public String getDefenseYear() {
         return defenseYear;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public int getBorrowCount() {
         return borrowCount;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void setBorrowCount(int borrowCount) {
         this.borrowCount = borrowCount;
     }
 
+    /**
+     * {@inheritDoc}
+     * Checks if this thesis matches the search phrase in title, author, or master.
+     */
     @Override
     public boolean matchesSearch(String searchPhrase) {
         searchPhrase = searchPhrase.toLowerCase();
 
         return this.getTitle().toLowerCase().contains(searchPhrase) || this.getAuthor().toLowerCase().contains(searchPhrase) || this.getMaster().toLowerCase().contains(searchPhrase);
     }
-
 }
 
+/**
+ * Represents a selling book in the library collection.
+ * These books can be purchased by users and have price and discount information.
+ */
 class SellingBook extends Resource {
+    /**
+     * Original price of the book
+     */
     private int price;
+    /**
+     * Discount percentage off the original price
+     */
     private int off;
+    /**
+     * Total money made from selling this book
+     */
     private int sellCount;
+    /**
+     * Number of copies sold
+     */
     private int totalSell;
 
+    /**
+     * Constructs a new SellingBook with the specified details.
+     *
+     * @param id        Unique identifier for the book.
+     * @param title     Title of the book.
+     * @param author    Author(s) of the book.
+     * @param copyCount Number of available copies.
+     * @param price     Original price of the book.
+     * @param off       Discount percentage off the original price.
+     * @param category  Category the book belongs to.
+     */
     public SellingBook(String id, String title, String author, int copyCount, int price, int off, String category) {
         super(id, title, author, copyCount, category);
         this.price = price;
         this.off = off;
-        sellCount = 0;
-        totalSell = 0;
+        this.sellCount = 0;
+        this.totalSell = 0;
     }
 
+    /**
+     * Calculates the final price after applying the discount.
+     *
+     * @return The final price after discount.
+     */
     public int getFinalPrice() {
         double discount = (100.0 - off) / 100.0;
         double discountedPrice = price * discount;
         return (int) Math.floor(discountedPrice);
     }
 
+    /**
+     * Gets the total money made from selling this book.
+     *
+     * @return The total money made.
+     */
     public int getSellCount() {
         return this.sellCount;
     }
 
+    /**
+     * Gets the number of copies sold.
+     *
+     * @return The number of copies sold.
+     */
     public int getTotalSell() {
         return totalSell;
     }
 
+    /**
+     * Increases the sell count and total copies sold when a book is purchased.
+     */
     public void increaseSellCount() {
-        sellCount += getFinalPrice();
-        totalSell++;
+        this.sellCount += getFinalPrice();
+        this.totalSell++;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getType() {
-        return "SellingBook";
+        return "selling-book";
     }
 
+    /**
+     * Gets the original price of this book.
+     *
+     * @return The original price.
+     */
     public int getPrice() {
         return price;
     }
 
+    /**
+     * Gets the discount percentage off the original price.
+     *
+     * @return The discount percentage.
+     */
     public int getOff() {
         return off;
     }
 
+    /**
+     * {@inheritDoc}
+     * Checks if this book matches the search phrase in title or author.
+     */
     @Override
     public boolean matchesSearch(String searchPhrase) {
         searchPhrase = searchPhrase.toLowerCase();
 
         return this.getTitle().toLowerCase().contains(searchPhrase) || this.getAuthor().toLowerCase().contains(searchPhrase);
     }
-
 }
 
+/**
+ * Represents a treasure book in the library collection.
+ * These are special books that can only be read in the library.
+ */
 class TreasureBook extends Resource {
+    /**
+     * The publisher of the book
+     */
     private String publisher;
+    /**
+     * The year the book was published
+     */
     private String publishYear;
+    /**
+     * The person who donated the book
+     */
     private String donator;
-
+    /**
+     * Log of all reading sessions for this book
+     */
     private HashSet<String[]> readLog;
 
+    /**
+     * Constructs a new TreasureBook with the specified details.
+     *
+     * @param id          The unique identifier for the book.
+     * @param title       The title of the book.
+     * @param author      The author of the book.
+     * @param publisher   The publisher of the book.
+     * @param publishYear The year the book was published.
+     * @param donator     The person who donated the book.
+     * @param category    The category the book belongs to.
+     */
     public TreasureBook(String id, String title, String author, String publisher, String publishYear, String donator, String category) {
         super(id, title, author, 1, category);
-        this.publishYear = publishYear;
         this.publisher = publisher;
+        this.publishYear = publishYear;
         this.donator = donator;
         this.readLog = new HashSet<>();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getType() {
-        return "TreasureBook";
+        return "treasure-book";
     }
 
+    /**
+     * Gets the publisher of this book.
+     *
+     * @return The publisher name.
+     */
     public String getPublisher() {
         return publisher;
     }
 
+    /**
+     * Gets the publication year of this book.
+     *
+     * @return The publication year.
+     */
     public String getPublishYear() {
         return publishYear;
     }
 
+    /**
+     * Gets the name of the person who donated this book.
+     *
+     * @return The donator's name.
+     */
     public String getDonator() {
         return donator;
     }
 
+    /**
+     * Gets the reading log for this book.
+     *
+     * @return A HashSet containing the reading log entries.
+     */
     public HashSet<String[]> getReadLog() {
         return readLog;
     }
 
+    /**
+     * {@inheritDoc}
+     * Checks if this book matches the search phrase in title, author, or publisher.
+     */
     @Override
     public boolean matchesSearch(String searchPhrase) {
         searchPhrase = searchPhrase.toLowerCase();
