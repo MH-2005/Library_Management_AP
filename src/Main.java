@@ -677,7 +677,7 @@ abstract class Admin {
         if (user != null) {
             return "permission-denied";
         }
-        if (user == null && !username.equals(USERNAME)) {
+        if (!username.equals(USERNAME)) {
             return "not-found";
         }
         if (!password.equals(PASSWORD)) {
@@ -699,13 +699,14 @@ class Library {
     private static HashMap<String, Library> libraryList = new HashMap<>();
 
     /**
-     * Set of resources available in this library
+     * Map of resources available in this library, indexed by resource ID
      */
-    private HashSet<Resource> resourceList;
+    private HashMap<String, Resource> resourceMap;
     /**
-     * Log of all borrowing transactions (userId, resourceId, time)
+     * Log of all borrowing transactions indexed by (userId+resourceId)
+     * Value is array containing: [userId, resourceId, time]
      */
-    private HashSet<String[]> borrowLog;
+    private HashMap<String, String[]> borrowLog;
     /**
      * Unique identifier for this library
      */
@@ -742,8 +743,8 @@ class Library {
         this.establishmentYear = establishmentYear;
         this.deskCount = deskCount;
         this.address = address;
-        this.resourceList = new HashSet<>();
-        this.borrowLog = new HashSet<>();
+        this.resourceMap = new HashMap<>();
+        this.borrowLog = new HashMap<>();
     }
 
     /**
@@ -786,7 +787,7 @@ class Library {
         ArrayList<String> idList = new ArrayList<>();
 
         for (Library library : libraryList.values()) {
-            for (Resource resource : library.resourceList) {
+            for (Resource resource : library.resourceMap.values()) {
                 if (resource.matchesSearch(searchPhrase)) {
                     idList.add(resource.getId());
                 }
@@ -807,12 +808,7 @@ class Library {
      * @return The resource object if found, or null if not found.
      */
     public Resource resourceFinder(String id) {
-        for (Resource resource : resourceList) {
-            if (resource.getId().equals(id)) {
-                return resource;
-            }
-        }
-        return null;
+        return resourceMap.get(id);
     }
 
     /**
@@ -824,18 +820,17 @@ class Library {
      * "not-found" if the resource doesn't exist.
      */
     public String removeResource(String id) {
-        Iterator<Resource> it = resourceList.iterator();
-        while (it.hasNext()) {
-            Resource resource = it.next();
-            if (resource.getId().equals(id)) {
-                if (resource instanceof Borrowable && ((Borrowable) resource).getBorrowCount() != 0) {
-                    return "not-allowed";
-                }
-                it.remove();
-                return "success";
-            }
+        Resource resource = resourceMap.get(id);
+        if (resource == null) {
+            return "not-found";
         }
-        return "not-found";
+
+        if (resource instanceof Borrowable && ((Borrowable) resource).getBorrowCount() != 0) {
+            return "not-allowed";
+        }
+
+        resourceMap.remove(id);
+        return "success";
     }
 
     /**
@@ -847,14 +842,14 @@ class Library {
      * "success" if the resource was successfully added.
      */
     public String addResource(Resource resource) {
-        if (resourceFinder(resource.getId()) != null) {
+        if (resourceMap.containsKey(resource.getId())) {
             return "duplicate-id";
         }
         if (Category.categoryFinder(resource.getCategory()) == null) {
             return "not-found";
         }
 
-        resourceList.add(resource);
+        resourceMap.put(resource.getId(), resource);
         return "success";
     }
 
@@ -881,10 +876,9 @@ class Library {
             return "not-allowed";
         }
 
-        for (String[] borrowDetail : borrowLog) {
-            if (borrowDetail[0].equals(user.getId()) && borrowDetail[2].equals(resource.getId())) {
-                return "not-allowed";
-            }
+        String userResourceKey = user.getId() + resource.getId();
+        if (borrowLog.containsKey(userResourceKey)) {
+            return "not-allowed";
         }
 
         borrowableResource.setBorrowCount(borrowableResource.getBorrowCount() + 1);
@@ -892,11 +886,10 @@ class Library {
         borrowDetail[0] = user.getId();
         borrowDetail[1] = resource.getId();
         borrowDetail[2] = time;
-        borrowLog.add(borrowDetail);
+        borrowLog.put(userResourceKey, borrowDetail);
         user.getBorrowList().add(resource.getId());
 
         return "success";
-
     }
 
     /**
@@ -908,32 +901,14 @@ class Library {
      * @return
      */
     public String returnResource(User user, Resource resource, String returnTime) {
-        String[] borrowDetail = new String[3];
-
-        boolean includesResource = false;
-
-        for (String[] detail : borrowLog) {
-            if (detail[0].equals(user.getId()) && detail[1].equals(resource.getId())) {
-                borrowDetail = detail;
-                includesResource = true;
-                break;
-            }
-        }
-        if (!includesResource) {
+        String userResourceKey = user.getId() + resource.getId();
+        String[] borrowDetail = borrowLog.get(userResourceKey);
+        if (borrowDetail == null) {
             return "not-found";
         }
         Borrowable borrowableResource = (Borrowable) resource;
 
-        Iterator<String[]> it = borrowLog.iterator();
-        while (it.hasNext()) {
-            String[] log = it.next();
-
-            if (log[0].equals(user.getId()) && log[1].equals(resource.getId())) {
-                it.remove();
-                break;
-            }
-        }
-
+        borrowLog.remove(userResourceKey);
         user.getBorrowList().remove(resource.getId());
 
         borrowableResource.setBorrowCount(borrowableResource.getBorrowCount() - 1);
@@ -1008,16 +983,13 @@ class Library {
         String startTime = time;
         String endTime = addTwoHours(time);
 
-        for (String[] Log : treasureBook.getReadLog()) {
-            if (haveConflict(startTime, endTime, Log[0], Log[1])) {
+        for (String[] readSession : treasureBook.getReadLog()) {
+            if (haveConflict(startTime, endTime, readSession[0], readSession[1])) {
                 return "not-allowed";
             }
         }
 
-        String[] log = new String[2];
-        log[0] = startTime;
-        log[1] = endTime;
-        treasureBook.getReadLog().add(log);
+        treasureBook.addReadingSession(startTime, endTime);
         return "success";
     }
 
@@ -1032,7 +1004,7 @@ class Library {
         int treasureBookCount = 0;
         int sellingBookCount = 0;
 
-        for (Resource resource : resourceList) {
+        for (Resource resource : resourceMap.values()) {
             switch (resource.getType()) {
                 case "book":
                     bookCount += resource.getCopyCount() - ((Borrowable) resource).getBorrowCount();
@@ -1062,7 +1034,7 @@ class Library {
         int sellingBookCount = 0;
         int treasureBookCount = 0;
 
-        for (Resource resource : resourceList) {
+        for (Resource resource : resourceMap.values()) {
             Category resourceCategory = Category.categoryFinder(resource.getCategory());
             while (resourceCategory != null) {
                 if (resourceCategory.getId().equals(categoryId)) {
@@ -1085,7 +1057,6 @@ class Library {
             }
         }
         return bookCount + " " + thesisCount + " " + treasureBookCount + " " + sellingBookCount;
-
     }
 
     /**
@@ -1097,7 +1068,7 @@ class Library {
     public ArrayList<String> reportPassedDeadline(String currentTime) {
         ArrayList<String> idList = new ArrayList<>();
 
-        for (String[] log : borrowLog) {
+        for (String[] log : borrowLog.values()) {
             User user = User.findUser(log[0]);
             Resource resource = resourceFinder(log[1]);
 
@@ -1135,7 +1106,7 @@ class Library {
         int mostSoldBookCount = 0;
         int totalSellCount = 0;
 
-        for (Resource resource : resourceList) {
+        for (Resource resource : resourceMap.values()) {
             if (resource instanceof SellingBook) {
                 int sellCount = ((SellingBook) resource).getSellCount();
                 totalSold += sellCount;
@@ -1160,7 +1131,7 @@ class Library {
         long thesisBorrowedCount = 0L;
         long maxThesisBorrowedTime = 0L;
 
-        for (Resource resource : resourceList) {
+        for (Resource resource : resourceMap.values()) {
             if (resource instanceof Borrowable) {
                 Borrowable item = (Borrowable) resource;
                 if (resource instanceof Book) {
@@ -1237,9 +1208,9 @@ class Library {
  */
 abstract class User {
     /**
-     * Set of all users registered in the system
+     * Map of all users registered in the system, indexed by ID
      */
-    private static HashSet<User> userList = new HashSet<>();
+    private static HashMap<String, User> userMap = new HashMap<>();
 
     /**
      * Unique identifier for the user
@@ -1307,7 +1278,7 @@ abstract class User {
      * @return The set of all User objects.
      */
     public static HashSet<User> getUserList() {
-        return userList;
+        return new HashSet<>(userMap.values());
     }
 
     /**
@@ -1317,12 +1288,7 @@ abstract class User {
      * @return The User object if found, otherwise null.
      */
     public static User findUser(String id) {
-        for (User user : userList) {
-            if (user.getId().equals(id)) {
-                return user;
-            }
-        }
-        return null;
+        return userMap.get(id);
     }
 
     /**
@@ -1332,11 +1298,11 @@ abstract class User {
      * @return "duplicate-id" if the ID is already in use or is the admin's username, "success" otherwise.
      */
     public static String addUser(User user) {
-        if (findUser(user.getId()) != null || user.getId().equals(Admin.getUsername())) {
+        if (userMap.containsKey(user.getId()) || user.getId().equals(Admin.getUsername())) {
             return "duplicate-id";
         }
 
-        userList.add(user);
+        userMap.put(user.getId(), user);
         return "success";
     }
 
@@ -1349,19 +1315,17 @@ abstract class User {
      * "not-found" if the user does not exist.
      */
     public static String removeUser(String id) {
-        Iterator<User> person = userList.iterator();
-        while (person.hasNext()) {
-            User user = person.next();
-            if (user.id.equals(id)) {
-                if (user.penalty != 0 || !user.borrowList.isEmpty()) {
-                    return "not-allowed";
-                } else {
-                    userList.remove(user);
-                    return "success";
-                }
-            }
+        User user = userMap.get(id);
+        if (user == null) {
+            return "not-found";
         }
-        return "not-found";
+
+        if (user.penalty != 0 || !user.borrowList.isEmpty()) {
+            return "not-allowed";
+        }
+
+        userMap.remove(id);
+        return "success";
     }
 
     /**
@@ -1375,7 +1339,7 @@ abstract class User {
         searchPhrase = searchPhrase.toLowerCase();
         ArrayList<String> idList = new ArrayList<>();
 
-        for (User user : userList) {
+        for (User user : userMap.values()) {
             if (user.getFirstName().toLowerCase().contains(searchPhrase) || user.getLastName().toLowerCase().contains(searchPhrase)) {
                 idList.add(user.getId());
             }
@@ -1396,7 +1360,7 @@ abstract class User {
      */
     public static int reportPenaltiesSum() {
         int penalty = 0;
-        for (User user : userList) {
+        for (User user : userMap.values()) {
             penalty += user.getPenalty();
         }
 
@@ -1650,13 +1614,13 @@ class Manager extends User {
  * Provides functionality to manage and find categories.
  */
 class Category {
-    // A static HashSet to store the list of categories
-    private static HashSet<Category> categoryList = new HashSet<Category>();
+    // A static HashMap to store the list of categories
+    private static HashMap<String, Category> categoryMap = new HashMap<>();
 
     static {
         // resources that doesn't have any category are in this group
         // we will always have a category of "null"
-        categoryList.add(new Category("null", "null", null));
+        categoryMap.put("null", new Category("null", "null", null));
     }
 
     private String id;
@@ -1691,33 +1655,27 @@ class Category {
         if (id == null) {
             return null;
         }
-
-        for (Category category : categoryList) {
-            if (category.id.equals(id)) {
-                return category;
-            }
-        }
-        return null;
+        return categoryMap.get(id);
     }
 
     /**
      * Adds a new category to the category list.
      */
     public static String addCategory(String id, String name, String parentCategoryId) {
-        if (categoryFinder(id) != null) {
+        if (categoryMap.containsKey(id)) {
             return "duplicate-id";
         }
-        if (parentCategoryId != null && categoryFinder(parentCategoryId) == null) {
+        if (parentCategoryId != null && !categoryMap.containsKey(parentCategoryId)) {
             return "not-found";
         }
         Category category = new Category(id, name, parentCategoryId);
-        categoryList.add(category);
+        categoryMap.put(id, category);
         return "success";
     }
 
     // Getters
     public HashSet<Category> getCategoryList() {
-        return categoryList;
+        return new HashSet<>(categoryMap.values());
     }
 
     public String getId() {
@@ -1759,9 +1717,9 @@ class Resource {
      */
     private int copyCount;
     /**
-     * Set of comments/reviews for this resource
+     * List of comments/reviews for this resource
      */
-    private HashSet<String> comments;
+    private ArrayList<String> comments;
 
     /**
      * Constructs a new Resource with the specified details.
@@ -1778,7 +1736,7 @@ class Resource {
         this.author = author;
         this.copyCount = copyCount;
         this.category = category;
-        this.comments = new HashSet<>();
+        this.comments = new ArrayList<>();
     }
 
     /**
@@ -1852,6 +1810,15 @@ class Resource {
      */
     public void addComment(String comment) {
         comments.add(comment);
+    }
+
+    /**
+     * Gets the list of all comments for this resource.
+     *
+     * @return An unmodifiable list of comments.
+     */
+    public List<String> getComments() {
+        return Collections.unmodifiableList(comments);
     }
 
     /**
@@ -2263,9 +2230,14 @@ class TreasureBook extends Resource {
      */
     private String donator;
     /**
-     * Log of all reading sessions for this book
+     * Map of reading sessions for this book - key: sessionId, value: [startTime, endTime]
      */
-    private HashSet<String[]> readLog;
+    private HashMap<String, String[]> readLog;
+
+    /**
+     * Current session counter for generating unique session IDs
+     */
+    private int sessionCounter;
 
     /**
      * Constructs a new TreasureBook with the specified details.
@@ -2283,7 +2255,8 @@ class TreasureBook extends Resource {
         this.publisher = publisher;
         this.publishYear = publishYear;
         this.donator = donator;
-        this.readLog = new HashSet<>();
+        this.readLog = new HashMap<>();
+        this.sessionCounter = 0;
     }
 
     /**
@@ -2326,8 +2299,22 @@ class TreasureBook extends Resource {
      *
      * @return A HashSet containing the reading log entries.
      */
-    public HashSet<String[]> getReadLog() {
-        return readLog;
+    public Collection<String[]> getReadLog() {
+        return readLog.values();
+    }
+
+    /**
+     * Adds a new reading session to the log.
+     *
+     * @param startTime The start time of the reading session
+     * @param endTime   The end time of the reading session
+     */
+    public void addReadingSession(String startTime, String endTime) {
+        String sessionId = "session_" + (++sessionCounter);
+        String[] session = new String[2];
+        session[0] = startTime;
+        session[1] = endTime;
+        readLog.put(sessionId, session);
     }
 
     /**
