@@ -1,35 +1,25 @@
-# Contributing to Library Management System
+# مشارکت در پروژه
 
-We love your input! We want to make contributing to Library Management System as easy and transparent as possible, whether it's:
+این پروژه یک **تمرین شخصی برای درس برنامه‌نویسی پیشرفته** است، اما خوشحال می‌شوم از پیشنهادها و بهبودهای شما استفاده کنم.
 
-- Reporting a bug
-- Discussing the current state of the code
-- Submitting a fix
-- Proposing new features
-- Becoming a maintainer
+## نحوهٔ مشارکت
 
-## Development Process
+۱. مخزن را Fork کنید
+۲. یک شاخهٔ جدید بسازید: `git checkout -b feature/amazing-feature`
+۳. تغییرات را ثبت کنید: `git commit -m 'Add some amazing feature'`
+۴. Push کنید: `git push origin feature/amazing-feature`
+۵. یک Pull Request باز کنید
 
-We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.
+## استانداردهای کدنویسی
 
-## Pull Requests
+- استفاده از تورفتگی یکنواخت (۴ فاصله)
+- انتخاب نام‌های معنادار برای متغیرها و متدها
+- نوشتن JavaDoc برای تمام متدها و کلاس‌های public
+- رعایت قراردادهای نام‌گذاری جاوا:
+  - `PascalCase` برای نام کلاس‌ها
+  - `camelCase` برای متدها و متغیرها
+  - `ALL_CAPS` برای ثابت‌ها
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## مجوز
 
-## Coding Standards
-
-- Use consistent indentation (4 spaces)
-- Use meaningful variable and method names
-- Write clear JavaDoc comments for all public methods and classes
-- Follow standard Java naming conventions:
-  - CamelCase for class names
-  - lowerCamelCase for method and variable names
-  - ALL_CAPS for constants
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the project's MIT License. 
+با مشارکت در این پروژه، تغییرات شما تحت مجوز MIT پروژه منتشر خواهد شد.

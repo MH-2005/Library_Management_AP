@@ -82,6 +82,38 @@ public class Main {
 class CommandHandeling {
 
     /**
+     * Minimum number of parameters (excluding the action) that each command requires.
+     * Used to validate input before processing and prevent out-of-bounds errors.
+     */
+    private static final HashMap<String, Integer> REQUIRED_PARAM_COUNT = new HashMap<>();
+    static {
+        REQUIRED_PARAM_COUNT.put("add-library", 6);
+        REQUIRED_PARAM_COUNT.put("add-category", 5);
+        REQUIRED_PARAM_COUNT.put("add-student", 8);
+        REQUIRED_PARAM_COUNT.put("add-manager", 9);
+        REQUIRED_PARAM_COUNT.put("add-staff", 9);
+        REQUIRED_PARAM_COUNT.put("remove-user", 3);
+        REQUIRED_PARAM_COUNT.put("add-book", 10);
+        REQUIRED_PARAM_COUNT.put("add-thesis", 9);
+        REQUIRED_PARAM_COUNT.put("add-ganjineh-book", 10);
+        REQUIRED_PARAM_COUNT.put("add-selling-book", 12);
+        REQUIRED_PARAM_COUNT.put("remove-resource", 4);
+        REQUIRED_PARAM_COUNT.put("borrow", 6);
+        REQUIRED_PARAM_COUNT.put("return", 6);
+        REQUIRED_PARAM_COUNT.put("buy", 4);
+        REQUIRED_PARAM_COUNT.put("read", 6);
+        REQUIRED_PARAM_COUNT.put("add-comment", 5);
+        REQUIRED_PARAM_COUNT.put("search", 1);
+        REQUIRED_PARAM_COUNT.put("search-user", 3);
+        REQUIRED_PARAM_COUNT.put("library-report", 3);
+        REQUIRED_PARAM_COUNT.put("category-report", 4);
+        REQUIRED_PARAM_COUNT.put("report-passed-deadline", 5);
+        REQUIRED_PARAM_COUNT.put("report-penalties-sum", 2);
+        REQUIRED_PARAM_COUNT.put("report-sell", 3);
+        REQUIRED_PARAM_COUNT.put("report-most-popular", 3);
+    }
+
+    /**
      * Processes a single command by determining the action and parameters.
      * It parses the command string and routes to the appropriate handler.
      *
@@ -97,7 +129,7 @@ class CommandHandeling {
             parameters = Arrays.copyOfRange(commandParts, 1, commandParts.length);
         } else {
             action = command;
-            parameters = null;
+            parameters = new String[0];
         }
 
         return actionProcess(action, parameters);
@@ -116,6 +148,12 @@ class CommandHandeling {
         User user;
         Library library;
         Resource resource;
+
+        // Minimum number of parameters each command expects (excluding the action itself)
+        Integer requiredParams = REQUIRED_PARAM_COUNT.get(action);
+        if (requiredParams != null && parameters.length < requiredParams) {
+            return "invalid-arguments";
+        }
 
         switch (action) {
             case "add-library":
@@ -645,7 +683,7 @@ class Library {
             return "not-allowed";
         }
 
-        String userResourceKey = user.getId() + resource.getId();
+        String userResourceKey = user.getId() + "|" + resource.getId();
         if (borrowLog.containsKey(userResourceKey)) {
             return "not-allowed";
         }
@@ -670,7 +708,7 @@ class Library {
      * @return
      */
     public String returnResource(User user, Resource resource, String returnTime) {
-        String userResourceKey = user.getId() + resource.getId();
+        String userResourceKey = user.getId() + "|" + resource.getId();
         String[] borrowDetail = borrowLog.get(userResourceKey);
         if (borrowDetail == null) {
             return "not-found";
@@ -946,7 +984,23 @@ class Library {
     }
 
     private long minutesDifference(String end, String start) {
-        return hoursDifference(end, start) * 60;
+        DateTimeFormatter formatter1 = DateTimeFormatter.ofPattern("yyyy-MM-dd|HH:mm");
+        DateTimeFormatter formatter2 = DateTimeFormatter.ofPattern("yyyy-MM-d|HH:mm");
+        LocalDateTime startDate, endDate;
+
+        try {
+            startDate = LocalDateTime.parse(start, formatter1);
+        } catch (DateTimeParseException e) {
+            startDate = LocalDateTime.parse(start, formatter2);
+        }
+
+        try {
+            endDate = LocalDateTime.parse(end, formatter1);
+        } catch (DateTimeParseException e) {
+            endDate = LocalDateTime.parse(end, formatter2);
+        }
+
+        return java.time.Duration.between(startDate, endDate).toMinutes();
     }
 
     private boolean haveConflict(String start1, String end1, String start2, String end2) {
